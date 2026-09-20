@@ -61,9 +61,10 @@ Abre `http://127.0.0.1:5190` solo. La primera vez crea el venv e instala depende
    cantidad de escenas y duración. Si el proyecto tiene feedback de iteraciones previas, el plan
    corrige exactamente esas quejas.
 3. **Guion** — el LLM escribe título, gancho y N escenas (`narración` + `prompt_imagen` en inglés).
-4. **Imágenes y clips** — el director decide qué escena lleva footage real: clip vertical de
-   Pexels/Pixabay (API oficial, keys gratis) con respaldo en imagen generada (FreeLLMAPI →
-   Pollinations); cache por query/prompt (iterar no regenera las escenas que no cambiaron).
+4. **Imágenes y clips** — el director decide qué escena lleva footage real. Sin configurar nada
+   los clips salen de **Wikimedia Commons** (sin key, calidad variable); con `pexels_api_key` /
+   `pixabay_api_key` (gratis) usa bancos con mejor material. Si no encuentra, imagen generada
+   (FreeLLMAPI → Pollinations). Cache por query/prompt (iterar no regenera lo que no cambió).
 5. **Voz** — Edge-TTS gratis (`es-AR-TomasNeural`); si cargás key de ElevenLabs en `config.json`,
    la usa automáticamente.
 6. **Render** — ffmpeg: Ken Burns alternado + fundidos + mux de audio. 1080x1920.
@@ -84,7 +85,7 @@ próxima iteración y alimenta la métrica de éxito del MVP: **promedio > 4/5 t
 | `whisper_model` | `base` | Tamaño de Whisper (`small` = mejor, más pesado) |
 | `tts_provider` | `auto` | `auto` / `edge` / `elevenlabs` |
 | `elevenlabs_api_key` | vacío | Si está, narra con ElevenLabs |
-| `pexels_api_key` | vacío | Clips de video reales (API de Pexels, gratis) |
+| `pexels_api_key` | vacío | Clips de mejor calidad (API oficial de Pexels, gratis en pexels.com/api). Sin key: Wikimedia Commons |
 | `pixabay_api_key` | vacío | Segundo banco de clips (API de Pixabay) |
 | `edge_voice` | `es-AR-TomasNeural` | Voz de Edge-TTS |
 | `aspecto` | `vertical` | `vertical` (9:16) o `horizontal` (16:9) |

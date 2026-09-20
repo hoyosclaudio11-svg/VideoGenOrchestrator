@@ -1,5 +1,6 @@
-"""Clips de video de bancos gratuitos via API oficial (Pexels -> Pixabay).
-Sin key configurada devuelve None y la escena usa imagen: degrada bien.
+"""Clips de video de bancos gratuitos.
+Orden: Pexels (API oficial, con key) -> Pixabay (con key) -> Wikimedia Commons
+(sin key, calidad variable) -> None (la escena usa imagen generada).
 Keys gratis: pexels.com/api y pixabay.com/api/docs/"""
 import hashlib
 from pathlib import Path
@@ -11,10 +12,14 @@ from util import cargar_config, log
 CACHE = Path(__file__).parent / "cache_clips"
 CACHE.mkdir(exist_ok=True)
 
+# Wikimedia exige un User-Agent con contacto (politica de API); sin el, 403.
+UA = ("VideoGenOrchestrator/1.0 "
+      "(https://github.com/hoyosclaudio11-svg/VideoGenOrchestrator)")
+
 
 def habilitado() -> bool:
-    cfg = cargar_config()
-    return bool(cfg.get("pexels_api_key") or cfg.get("pixabay_api_key"))
+    # Commons no necesita key: los clips siempre estan disponibles.
+    return True
 
 
 def _mejor_archivo(archivos: list) -> str | None:
@@ -74,9 +79,67 @@ def _pixabay(query: str) -> str | None:
     return None
 
 
+def _commons_busqueda(query: str) -> list:
+    r = httpx.get(
+        "https://commons.wikimedia.org/w/api.php",
+        params={
+            "action": "query",
+            "generator": "search",
+            "gsrsearch": f"filetype:video {query}",
+            "gsrnamespace": "6",
+            "gsrlimit": "10",
+            "prop": "imageinfo",
+            "iiprop": "url|size|mime",
+            "format": "json",
+        },
+        headers={"User-Agent": UA},
+        timeout=30,
+    )
+    if r.status_code != 200:
+        log(f"Commons HTTP {r.status_code}")
+        return []
+    candidatos = []
+    for pagina in (r.json().get("query", {}).get("pages") or {}).values():
+        for info in pagina.get("imageinfo", []):
+            mime = info.get("mime", "")
+            ancho, alto = info.get("width") or 0, info.get("height") or 0
+            if not mime.startswith("video") or not info.get("url"):
+                continue
+            if not (500_000 <= (info.get("size") or 0) <= 80_000_000):
+                continue  # descarta diminutos y monstruos
+            puntos = 0
+            if alto > ancho:
+                puntos += 2  # vertical es oro
+            if mime in ("video/mp4", "video/webm"):
+                puntos += 1
+            puntos += min(alto, 2160) / 4320
+            candidatos.append((puntos, info["url"]))
+    return candidatos
+
+
+def _commons(query: str) -> str | None:
+    """Wikimedia Commons: sin key, footage real bajo licencia libre."""
+    try:
+        candidatos = _commons_busqueda(query)
+        if not candidatos:
+            # reintento con las dos primeras palabras (busqueda full-text estricta)
+            corta = " ".join(query.split()[:2])
+            if corta and corta != query:
+                candidatos = _commons_busqueda(corta)
+        if not candidatos:
+            log(f"Commons sin videos utilizables para '{query}'")
+            return None
+        candidatos.sort(key=lambda c: -c[0])
+        return candidatos[0][1]
+    except Exception as e:
+        log(f"Commons fallo: {e}")
+        return None
+
+
 def _descargar(url: str, destino: Path) -> Path | None:
     try:
-        r = httpx.get(url, timeout=240, follow_redirects=True)
+        r = httpx.get(url, timeout=240, follow_redirects=True,
+                      headers={"User-Agent": UA})
         if r.status_code == 200 and len(r.content) > 100_000:
             destino.write_bytes(r.content)
             return destino
@@ -102,6 +165,7 @@ def buscar(query: str) -> Path | None:
         proveedores.append(("Pexels", _pexels))
     if cfg.get("pixabay_api_key"):
         proveedores.append(("Pixabay", _pixabay))
+    proveedores.append(("Commons", _commons))
     for via, fn in proveedores:
         url = fn(query)
         if url and _descargar(url, destino):
