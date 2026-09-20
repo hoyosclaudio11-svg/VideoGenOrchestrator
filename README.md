@@ -25,8 +25,8 @@ Lo que NO resuelve:
 
 1. **No elige buenas ideas.** Produce rápido cualquier idea, incluso las malas: la
    viralidad sigue dependiendo del tema y del gancho.
-2. **Su techo visual es imagen + movimiento de cámara** (Ken Burns), no video real:
-   para temas donde el movimiento importa, rinde menos que otros enfoques.
+2. **No genera footage propio**: usa imágenes con movimiento de cámara y clips de bancos
+   gratuitos (Pexels/Pixabay); el footage generado por modelos de video es otro nivel.
 3. **El >4/5 mide la satisfacción iterando, no la de la audiencia.** La validación
    real es la retención en el canal.
 
@@ -61,8 +61,9 @@ Abre `http://127.0.0.1:5190` solo. La primera vez crea el venv e instala depende
    cantidad de escenas y duración. Si el proyecto tiene feedback de iteraciones previas, el plan
    corrige exactamente esas quejas.
 3. **Guion** — el LLM escribe título, gancho y N escenas (`narración` + `prompt_imagen` en inglés).
-4. **Imágenes** — FreeLLMAPI (Tier 1) con respaldo automático en Pollinations; cache por prompt
-   (iterar no regenera las escenas que no cambiaron).
+4. **Imágenes y clips** — el director decide qué escena lleva footage real: clip vertical de
+   Pexels/Pixabay (API oficial, keys gratis) con respaldo en imagen generada (FreeLLMAPI →
+   Pollinations); cache por query/prompt (iterar no regenera las escenas que no cambiaron).
 5. **Voz** — Edge-TTS gratis (`es-AR-TomasNeural`); si cargás key de ElevenLabs en `config.json`,
    la usa automáticamente.
 6. **Render** — ffmpeg: Ken Burns alternado + fundidos + mux de audio. 1080x1920.
@@ -78,11 +79,13 @@ próxima iteración y alimenta la métrica de éxito del MVP: **promedio > 4/5 t
 
 | Clave | Default | Qué es |
 |---|---|---|
-| `modelo_texto` | `grok-4.3` | Modelo del director/guionista (cambiable desde la UI) |
+| `modelo_texto` | `auto` | Modelo del director/guionista (cambiable desde la UI) |
 | `modelo_imagen` | `auto` | Modelo de imagen que pide a FreeLLMAPI |
 | `whisper_model` | `base` | Tamaño de Whisper (`small` = mejor, más pesado) |
 | `tts_provider` | `auto` | `auto` / `edge` / `elevenlabs` |
 | `elevenlabs_api_key` | vacío | Si está, narra con ElevenLabs |
+| `pexels_api_key` | vacío | Clips de video reales (API de Pexels, gratis) |
+| `pixabay_api_key` | vacío | Segundo banco de clips (API de Pixabay) |
 | `edge_voice` | `es-AR-TomasNeural` | Voz de Edge-TTS |
 | `aspecto` | `vertical` | `vertical` (9:16) o `horizontal` (16:9) |
 | `puerto` | `5190` | Puerto del panel |

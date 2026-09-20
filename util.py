@@ -19,6 +19,8 @@ _CONFIG_DEFAULTS = {
     "tts_provider": "auto",
     "elevenlabs_api_key": "",
     "elevenlabs_voice_id": "",
+    "pexels_api_key": "",
+    "pixabay_api_key": "",
     "edge_voice": "es-AR-TomasNeural",
     "aspecto": "vertical",
     "max_escenas": 6,

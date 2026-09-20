@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 salidas/
 cache_imagenes/
+cache_clips/
 prueba_render/
 datos.db*
 _videogen.log

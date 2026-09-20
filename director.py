@@ -58,9 +58,25 @@ def planear(pedido: str, estilo_extra: str, feedbacks: list, modelo: str) -> dic
     return plan
 
 
-def guion(pedido: str, plan: dict, modelo: str) -> dict:
-    """Devuelve {"titulo", "gancho", "escenas": [{"narracion", "prompt_imagen"}]}."""
+def guion(pedido: str, plan: dict, modelo: str, con_clips: bool = False) -> dict:
+    """Devuelve {"titulo", "gancho", "escenas": [{"narracion", "prompt_imagen",
+    "medio"?, "query_video"?}]}. Con clips, el director decide que escena lleva
+    footage real de banco y que escena imagen generada."""
     n = plan["cantidad_escenas"]
+    reglas_clips = (
+        "- 'medio': \"video\" si un banco de clips seguramente tiene footage real del tema "
+        "(gente, animales, ciudades, naturaleza, deportes, comida, tecnologia, emociones); "
+        "\"imagen\" si es imposible de filmar (fantasia, abstracto, epoca antigua, conceptos "
+        "intangibles). La escena del GANCHO prefiere \"video\" cuando aplique: retiene mas.\n"
+        "- 'query_video': 2-4 palabras en INGLES para buscar el clip "
+        "(ej: \"cat falling slow motion\").\n"
+    ) if con_clips else ""
+    schema_escena = (
+        '{"narracion": "...", "prompt_imagen": "...", '
+        '"medio": "video|imagen", "query_video": "..."}'
+        if con_clips else
+        '{"narracion": "...", "prompt_imagen": "..."}'
+    )
     system = (
         "Sos un GUIONISTA de videos cortos verticales virales en espanol rioplatense. "
         "Escribis la narracion de cada escena y el prompt de imagen para un modelo de difusion.\n"
@@ -68,11 +84,11 @@ def guion(pedido: str, plan: dict, modelo: str) -> dict:
         "- El GANCHO va en la primera frase de la primera escena (3 segundos para atrapar).\n"
         "- Cada escena: 1-2 frases cortas para narrar (~6-9 segundos).\n"
         f"- Exactamente {n} escenas.\n"
+        f"{reglas_clips}"
         "- 'prompt_imagen' en INGLES: descripcion visual rica y concreta, estilo "
         f"{plan['estilo_visual']}. Sin texto ni letras en la imagen, sin marcas de agua.\n"
         "- Respondes SOLO con JSON valido con esta forma exacta: "
-        '{"titulo": "...", "gancho": "...", '
-        '"escenas": [{"narracion": "...", "prompt_imagen": "..."}]}'
+        '{"titulo": "...", "gancho": "...", "escenas": [' + schema_escena + ']}'
     )
     user = (
         f"TEMA DEL VIDEO:\n{pedido}\n\n"
@@ -96,6 +112,14 @@ def guion(pedido: str, plan: dict, modelo: str) -> dict:
                 for e in escenas
             ):
                 datos["escenas"] = escenas[: cargar_config()["max_escenas"]]
+                for e in datos["escenas"]:
+                    if con_clips:
+                        if (e.get("medio") or "").lower() != "video" or \
+                                not (e.get("query_video") or "").strip():
+                            e["medio"] = "imagen"
+                    else:
+                        e.pop("medio", None)
+                        e.pop("query_video", None)
                 datos.setdefault("titulo", "Sin titulo")
                 return datos
             ultimo = f"guion invalido ({len(escenas)} escenas o campos vacios)"

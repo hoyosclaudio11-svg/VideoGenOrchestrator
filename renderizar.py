@@ -37,14 +37,32 @@ def _video_escena(imagen: Path, dur: float, destino: Path, w: int, h: int,
         raise RuntimeError(f"ffmpeg fallo en escena {destino.name}: {p.stderr[-600:]}")
 
 
+def _video_desde_clip(clip: Path, dur: float, destino: Path, w: int, h: int) -> None:
+    """Recorta/escala el clip del banco a la escena vertical (mismo codec que las
+    escenas de imagen para que el concat sin re-encode siga funcionando). Si el
+    clip dura menos que la escena, lo loopea."""
+    frames = max(2, round(dur * FPS))
+    vf = (f"scale={w}:{h}:force_original_aspect_ratio=increase,"
+          f"crop={w}:{h},fps={FPS},format=yuv420p,"
+          f"fade=t=in:st=0:d=0.25,fade=t=out:st={max(0.0, dur - 0.3):.2f}:d=0.3")
+    _run(["ffmpeg", "-y", "-stream_loop", "-1", "-i", str(clip),
+          "-t", f"{dur:.3f}", "-an", "-vf", vf, "-frames:v", str(frames),
+          "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", str(destino)])
+
+
 def renderizar(escenas: list, dir_sal: Path, w: int, h: int, progreso=None,
                subtitulos=None) -> tuple:
-    """escenas: [{imagen, audio, dur}]. Devuelve (video_final, duracion_total).
+    """escenas: [{imagen, audio, dur, clip?}]. Devuelve (video_final, duracion_total).
+    Si la escena trae 'clip' (video de banco), se usa footage real en vez de Ken Burns.
     subtitulos: ruta a un .ass para quemar en el render final (opcional)."""
     videos = []
     for i, esc in enumerate(escenas):
         v = dir_sal / f"esc_{i:02d}.mp4"
-        _video_escena(Path(esc["imagen"]), esc["dur"], v, w, h, acercar=(i % 2 == 0))
+        if esc.get("clip"):
+            _video_desde_clip(Path(esc["clip"]), esc["dur"], v, w, h)
+        else:
+            _video_escena(Path(esc["imagen"]), esc["dur"], v, w, h,
+                          acercar=(i % 2 == 0))
         videos.append(v)
         if progreso:
             progreso(i + 1, len(escenas))

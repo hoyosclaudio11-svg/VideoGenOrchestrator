@@ -29,7 +29,18 @@ def imagen_sintetica(destino: Path, c1: str, c2: str) -> None:
         )
 
 
+def clip_sintetico(destino: Path) -> None:
+    """Clip de prueba que simula un video de banco (4s verticales)."""
+    subprocess.run(
+        ["ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc2=size=720x1280:rate=30",
+         "-t", "4", "-c:v", "libx264", "-preset", "veryfast", str(destino)],
+        capture_output=True, check=True,
+    )
+
+
 def main() -> None:
+    clip = DIR / "clip_prueba.mp4"
+    clip_sintetico(clip)
     escenas = []
     for i, (c1, c2) in enumerate([("0x0b1d3a", "0x7c5cff"), ("0x3a0b0b", "0xff9d5c")]):
         img = DIR / f"img_{i}.jpg"
@@ -46,6 +57,8 @@ def main() -> None:
             )
         escenas.append({"imagen": str(img), "audio": str(audio),
                         "dur": duracion(audio) + 0.7})
+    # La primera escena va con clip de banco ( footage real) en vez de Ken Burns
+    escenas[0]["clip"] = str(clip)
     final, total = renderizar(escenas, DIR, 1080, 1920)
     print(f"OK -> {final} ({total:.1f}s)")
 

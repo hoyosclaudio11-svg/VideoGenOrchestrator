@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import clips
 import director
 import imagenes
 import recursos
@@ -111,24 +112,38 @@ def _ejecutar(job_id: str) -> None:
         ok(extra)
 
         marcar("Escribiendo el guion")
-        guion = director.guion(texto, plan, modelo)
+        con_clips = clips.habilitado()
+        guion = director.guion(texto, plan, modelo, con_clips=con_clips)
         ok(guion["titulo"])
 
         escenas = guion["escenas"][: cfg["max_escenas"]]
         vertical = cfg["aspecto"] == "vertical"
         w_img, h_img = (768, 1344) if vertical else (1344, 768)
 
-        marcar(f"Generando {len(escenas)} imagenes")
+        marcar(f"Generando {len(escenas)} visuales"
+               + (" (imagenes + clips de banco)" if con_clips else ""))
         conc = recursos.concurrencia()
         rutas = [None] * len(escenas)
+        tipos = ["imagen"] * len(escenas)
+
+        def _visual(i: int) -> tuple:
+            esc = escenas[i]
+            if con_clips and esc.get("medio") == "video":
+                clip = clips.buscar(esc.get("query_video", ""))
+                if clip:
+                    return i, str(clip), "clip"
+            return i, str(imagenes.generar(esc["prompt_imagen"], w_img, h_img)), "imagen"
+
         with ThreadPoolExecutor(max_workers=conc) as ex:
-            futuros = {ex.submit(imagenes.generar, e["prompt_imagen"], w_img, h_img): i
-                       for i, e in enumerate(escenas)}
+            futuros = {ex.submit(_visual, i): i for i in range(len(escenas))}
             for fut in as_completed(futuros):
-                rutas[futuros[fut]] = str(fut.result())
+                i, ruta, tipo = fut.result()
+                rutas[i], tipos[i] = ruta, tipo
                 detalle_sub(f"{sum(r is not None for r in rutas)}/{len(escenas)}"
                             f" - escala: {conc} en paralelo")
-        ok(f"{len(escenas)} imagenes (cache + FreeLLMAPI/Pollinations)")
+        n_clips = tipos.count("clip")
+        ok(f"{len(escenas) - n_clips} imagenes + {n_clips} clips"
+           if con_clips else f"{len(escenas)} imagenes (cache + FreeLLMAPI/Pollinations)")
 
         marcar("Generando la narracion (voz)")
         for i, esc in enumerate(escenas):
@@ -137,7 +152,9 @@ def _ejecutar(job_id: str) -> None:
         ok(f"proveedor: {voz.proveedor()}")
 
         marcar("Renderizando el video")
-        piezas = [{"imagen": rutas[i], "audio": str(dir_sal / f"voz_{i:02d}.mp3"),
+        piezas = [{"imagen": rutas[i],
+                   "clip": rutas[i] if tipos[i] == "clip" else None,
+                   "audio": str(dir_sal / f"voz_{i:02d}.mp3"),
                    "dur": voz.duracion(dir_sal / f"voz_{i:02d}.mp3") + 0.7}
                   for i in range(len(escenas))]
         w, h = (1080, 1920) if vertical else (1920, 1080)
