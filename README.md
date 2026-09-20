@@ -5,6 +5,34 @@ ajusta los parámetros de producción, un LLM escribe el guion, un modelo de dif
 imágenes, Edge-TTS/ElevenLabs narra y ffmpeg arma el video. En cada iteración el director corrige
 los parámetros según el feedback del usuario.
 
+## ¿Qué problema resuelve?
+
+Entre "tengo una idea" y "tengo un video publicado" hay 2-3 horas y 4 herramientas:
+guion, imágenes, voz y edición. Esta app convierte eso en hablar 30 segundos al
+micrófono (o escribir una línea) y tener en ~1 minuto un video vertical publicable
+con subtítulos. El problema que resuelve es la fricción, no la creatividad.
+
+Para quién tiene sentido:
+
+- **Operaciones de contenido con volumen** (canales faceless, cuotas diarias): es una
+  fábrica del formato corto con gancho a los 3 segundos.
+- **Iteración barata**: calificás, escribís qué no te gustó, y el director regenera
+  ajustando ritmo/estilo/guion sin re-generar las imágenes que ya estaban bien.
+- **Sin lock-in**: el modelo se cambia desde un dropdown; corre local contra cualquier
+  gateway OpenAI-compatible.
+
+Lo que NO resuelve:
+
+1. **No elige buenas ideas.** Produce rápido cualquier idea, incluso las malas: la
+   viralidad sigue dependiendo del tema y del gancho.
+2. **Su techo visual es imagen + movimiento de cámara** (Ken Burns), no video real:
+   para temas donde el movimiento importa, rinde menos que otros enfoques.
+3. **El >4/5 mide la satisfacción iterando, no la de la audiencia.** La validación
+   real es la retención en el canal.
+
+En una línea: le quita horas a la parte mecánica de producir video corto y le pone
+un loop medible a la parte de calidad, para que el tiempo se vaya a elegir temas.
+
 ## Instalación (desde cero)
 
 ```
