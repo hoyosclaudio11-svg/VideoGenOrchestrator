@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VideoGen Orchestrator</title>
+<style>
+:root {
+  --fondo: #0e1013; --tarjeta: #16191f; --borde: #262b35;
+  --texto: #e8eaf0; --tenue: #8b93a5; --acento: #7c5cff; --acento2: #4cc2a9;
+  --ok: #3ecf8e; --error: #ff6b6b; --estrella: #f5b942;
+}
+* { box-sizing: border-box; margin: 0; }
+body {
+  background: var(--fondo); color: var(--texto);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  padding: 24px 16px 60px; line-height: 1.5;
+}
+.contenedor { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+h1 span { color: var(--acento); }
+.sub { color: var(--tenue); font-size: 0.85rem; width: 100%; }
+.punto { width: 10px; height: 10px; border-radius: 50%; background: #555; display: inline-block; }
+.punto.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.punto.mal { background: var(--error); }
+select, input, textarea, button { font: inherit; }
+select, input {
+  background: #0f1218; color: var(--texto); border: 1px solid var(--borde);
+  border-radius: 10px; padding: 9px 12px; outline: none;
+}
+select:focus, input:focus, textarea:focus { border-color: var(--acento); }
+.tarjeta {
+  background: var(--tarjeta); border: 1px solid var(--borde);
+  border-radius: 14px; padding: 18px;
+}
+.tarjeta h2 { font-size: 0.95rem; margin-bottom: 12px; color: var(--tenue); text-transform: uppercase; letter-spacing: 0.06em; }
+textarea {
+  width: 100%; min-height: 90px; resize: vertical;
+  background: #0f1218; color: var(--texto); border: 1px solid var(--borde);
+  border-radius: 10px; padding: 12px; outline: none;
+}
+.fila { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.fila label { color: var(--tenue); font-size: 0.85rem; }
+.fila input[type=text] { flex: 1; min-width: 140px; }
+button.boton {
+  background: linear-gradient(135deg, var(--acento), #5a3fd8); color: #fff;
+  border: none; border-radius: 10px; padding: 11px 22px; font-weight: 600;
+  cursor: pointer; transition: filter .15s;
+}
+button.boton:hover { filter: brightness(1.15); }
+button.boton:disabled { opacity: 0.45; cursor: not-allowed; }
+button.boton.sec { background: #232838; }
+button.mic {
+  background: #232838; border: 1px solid var(--borde); color: var(--texto);
+  border-radius: 10px; padding: 11px 16px; cursor: pointer; font-weight: 600;
+}
+button.mic.grabando { background: #3a1420; border-color: var(--error); animation: latido 1.1s infinite; }
+@keyframes latido { 50% { box-shadow: 0 0 0 6px rgba(255,107,107,.15); } }
+.aviso { font-size: 0.85rem; color: var(--tenue); min-height: 1.2em; margin-top: 8px; }
+.aviso.error { color: var(--error); }
+.pasos { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.pasos li { display: flex; gap: 10px; align-items: baseline; font-size: 0.95rem; }
+.pasos .icono { width: 1.2em; text-align: center; flex: none; }
+.pasos .detalle { color: var(--tenue); font-size: 0.85rem; }
+.pasos li.ok .icono { color: var(--ok); }
+.pasos li.error { color: var(--error); }
+.pasos li.curso .icono { animation: girar 1s linear infinite; display: inline-block; }
+@keyframes girar { to { transform: rotate(360deg); } }
+video { width: 100%; max-height: 60vh; border-radius: 12px; background: #000; margin-top: 4px; }
+.meta { color: var(--tenue); font-size: 0.85rem; margin-top: 8px; }
+.estrellas { font-size: 1.9rem; cursor: pointer; user-select: none; letter-spacing: 4px; }
+.estrellas span { color: #3a3f4d; transition: color .1s; }
+.estrellas span.activa { color: var(--estrella); }
+textarea.comentario { min-height: 44px; margin-top: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--borde); }
+th { color: var(--tenue); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: .05em; }
+td a { color: var(--acento2); text-decoration: none; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  background: #0f1218; border: 1px solid var(--borde); border-radius: 999px;
+  padding: 6px 14px; font-size: 0.85rem; color: var(--tenue);
+}
+.chip b { color: var(--texto); }
+.chip.meta-ok b { color: var(--ok); }
+.oculto { display: none; }
+</style>
+</head>
+<body>
+<div class="contenedor">
+  <header>
+    <h1>Video<span>Gen</span> Orchestrator</h1>
+    <span class="punto" id="saludFllm" title="FreeLLMAPI"></span>
+    <span class="punto" id="saludFfmpeg" title="ffmpeg"></span>
+    <select id="modelo" style="margin-left:auto; max-width: 260px;"></select>
+    <div class="sub">De una idea (texto o voz) a un video vertical con guion, imágenes y narración. El director ajusta parámetros con cada iteración.</div>
+  </header>
+
+  <section class="tarjeta">
+    <h2>Idea</h2>
+    <textarea id="texto" placeholder="Contá de qué va el video. Ej: «La historia del autos sacado de la fábrica que quedó abandonado 40 años»"></textarea>
+    <div class="fila">
+      <button class="mic" id="mic">🎙️ Grabar voz</button>
+      <input type="text" id="estilo" placeholder="Estilo (opcional): ej. documental, humor, suspenso">
+      <input type="text" id="proyecto" placeholder="Proyecto" value="general" style="max-width:130px">
+      <button class="boton" id="generar">Generar video ▶</button>
+    </div>
+    <div class="aviso" id="avisoEntrada"></div>
+  </section>
+
+  <section class="tarjeta oculto" id="tarjetaProgreso">
+    <h2>Progreso</h2>
+    <ul class="pasos" id="pasos"></ul>
+  </section>
+
+  <section class="tarjeta oculto" id="tarjetaResultado">
+    <h2>Resultado</h2>
+    <video id="video" controls></video>
+    <div class="meta" id="metaVideo"></div>
+    <div class="fila">
+      <span class="estrellas" id="estrellas">
+        <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+      </span>
+      <button class="boton sec oculto" id="iterar">🔁 Iterar con este feedback</button>
+    </div>
+    <textarea class="comentario" id="comentario" placeholder="¿Qué mejorarías? (esto lo usa el director para la próxima iteración)"></textarea>
+    <div class="aviso" id="avisoFeedback"></div>
+  </section>
+
+  <section class="tarjeta">
+    <h2>Satisfacción · meta: promedio &gt; 4/5 tras 3 iteraciones</h2>
+    <div class="chips" id="metricas"><span class="chip">Sin calificaciones todavía</span></div>
+  </section>
+
+  <section class="tarjeta">
+    <h2>Historial</h2>
+    <table id="tabla">
+      <thead><tr><th>Cuando</th><th>Proyecto</th><th>Titulo</th><th>Dur</th><th>Puntaje</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const estado = { jobId: null, encuestando: null, ultimoPedido: null, puntaje: 0, iterado: false };
+
+async function json_(url, opciones) {
+  const r = await fetch(url, opciones);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `HTTP ${r.status}`);
+  return r.json();
+}
+
+async function chequearSalud() {
+  try {
+    const s = await json_("/api/salud");
+    $("saludFllm").className = "punto " + (s.freellmapi ? "ok" : "mal");
+    $("saludFllm").title = "FreeLLMAPI: " + (s.freellmapi ? "OK" : "CAÍDO (puerto 3001)");
+    $("saludFfmpeg").className = "punto " + (s.ffmpeg ? "ok" : "mal");
+    $("saludFfmpeg").title = "ffmpeg: " + (s.ffmpeg ? "OK" : "no encontrado");
+    $("saludFfmpeg").style.background = s.ffmpeg ? "" : "#555";
+    $("saludFfmpeg").className = "punto " + (s.ffmpeg ? "ok" : "");
+    $("saludFfmpeg").style.background = s.ffmpeg ? "" : "#555";
+    cargarModelos(s.modelo_default);
+  } catch { $("saludFllm").className = "punto mal"; }
+}
+
+async function cargarModelos(defecto) {
+  try {
+    const { modelos } = await json_("/api/modelos");
+    const sel = $("modelo");
+    sel.innerHTML = modelos.map(m => `<option ${m === defecto ? "selected" : ""}>${m}</option>`).join("");
+  } catch {}
+}
+
+// ------------------------------------------------------------------ micrófono
+let recorder = null, trozos = [];
+$("mic").onclick = async () => {
+  if (recorder && recorder.state === "recording") { recorder.stop(); return; }
+  try {
+    const flujo = await navigator.mediaDevices.getUserMedia({ audio: true });
+    trozos = [];
+    recorder = new MediaRecorder(flujo);
+    recorder.ondataavailable = e => trozos.push(e.data);
+    recorder.onstop = async () => {
+      $("mic").textContent = "🎙️ Grabar voz";
+      $("mic").classList.remove("grabando");
+      flujo.getTracks().forEach(t => t.stop());
+      $("avisoEntrada").textContent = "Transcribiendo...";
+      try {
+        const blob = new Blob(trozos, { type: recorder.mimeType || "audio/webm" });
+        const fd = new FormData();
+        fd.append("archivo", blob, "voz.webm");
+        const { texto } = await json_("/api/transcribe", { method: "POST", body: fd });
+        if (texto) {
+          $("texto").value = ($("texto").value ? $("texto").value + " " : "") + texto;
+          $("avisoEntrada").textContent = "✓ Transcrito. Revisalo y ajustá lo que quieras antes de generar.";
+        } else {
+          $("avisoEntrada").textContent = "No se escuchó nada. Probá de nuevo más cerca del micrófono.";
+        }
+      } catch (e) { $("avisoEntrada").textContent = "Error transcribiendo: " + e.message; $("avisoEntrada").className = "aviso error"; }
+    };
+    recorder.start();
+    $("mic").textContent = "⏹️ Parar";
+    $("mic").classList.add("grabando");
+    $("avisoEntrada").textContent = "Grabando... hablá con normalidad y apretá para parar.";
+  } catch (e) {
+    $("avisoEntrada").textContent = "Sin acceso al micrófono: " + e.message;
+    $("avisoEntrada").className = "aviso error";
+  }
+};
+
+// ------------------------------------------------------------------ generar
+$("generar").onclick = generar;
+$("iterar").onclick = () => { if (estado.ultimoPedido) generar(true); };
+
+async function generar(esIteracion = false) {
+  const texto = $("texto").value.trim();
+  if (!texto) { $("avisoEntrada").textContent = "Escribí el tema o grabá tu voz primero."; return; }
+  const pedido = {
+    proyecto: $("proyecto").value.trim() || "general",
+    texto,
+    estilo: $("estilo").value.trim(),
+    modelo: $("modelo").value,
+  };
+  estado.ultimoPedido = pedido;
+  estado.iterado = esIteracion;
+  $("generar").disabled = true;
+  $("avisoEntrada").className = "aviso";
+  $("avisoEntrada").textContent = "";
+  $("tarjetaProgreso").classList.remove("oculto");
+  $("pasos").innerHTML = "";
+  try {
+    const { job_id } = await json_("/api/generate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pedido),
+    });
+    estado.jobId = job_id;
+    encuestar(job_id);
+  } catch (e) {
+    $("avisoEntrada").textContent = "Error: " + e.message;
+    $("avisoEntrada").className = "aviso error";
+    $("generar").disabled = false;
+  }
+}
+
+async function encuestar(jobId) {
+  clearInterval(estado.encuestando);
+  estado.encuestando = setInterval(async () => {
+    let j;
+    try { j = await json_("/api/job/" + jobId); } catch { return; }
+    $("pasos").innerHTML = (j.pasos || []).map(p =>
+      `<li class="${p.estado}"><span class="icono">${
+        p.estado === "ok" ? "✓" : p.estado === "error" ? "✗" : "◐"}</span>` +
+        `<span>${p.texto}${p.detalle ? ` <span class="detalle">— ${p.detalle}</span>` : ""}</span></li>`
+    ).join("");
+    if (j.estado === "listo" || j.estado === "error") {
+      clearInterval(estado.encuestando);
+      $("generar").disabled = false;
+      if (j.estado === "listo") mostrarResultado(j);
+      else {
+        const li = document.createElement("li");
+        li.className = "error";
+        li.innerHTML = `<span class="icono">✗</span><span>${j.error || "Error desconocido"}</span>`;
+        $("pasos").appendChild(li);
+      }
+    }
+  }, 1200);
+}
+
+function mostrarResultado(j) {
+  $("tarjetaResultado").classList.remove("oculto");
+  $("video").src = j.video_url;
+  $("metaVideo").textContent = `${j.titulo || "Sin título"} · ${j.duracion}s · proyecto «${j.proyecto}»` +
+    (estado.iterado ? " · iteración con feedback aplicado" : "");
+  estado.puntaje = 0; estado.iterado = false;
+  pintarEstrellas(0);
+  $("comentario").value = "";
+  $("iterar").classList.add("oculto");
+  $("avisoFeedback").textContent = "";
+  refrescarAbajo();
+}
+
+// ------------------------------------------------------------------ feedback
+function pintarEstrellas(n) {
+  [...$("estrellas").children].forEach((s, i) => s.classList.toggle("activa", i < n));
+}
+$("estrellas").onclick = async e => {
+  if (!estado.jobId) return;
+  const hijos = [...$("estrellas").children];
+  const n = hijos.indexOf(e.target) + 1;
+  if (n < 1) return;
+  estado.puntaje = n;
+  pintarEstrellas(n);
+  try {
+    const resp = await json_("/api/feedback", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: estado.jobId, puntaje: n, comentario: $("comentario").value.trim() }),
+    });
+    $("avisoFeedback").textContent = `✓ Calificado con ${n}/5. El director lo va a usar en la próxima iteración.`;
+    $("iterar").classList.remove("oculto");
+    pintarMetricas(resp.metricas);
+    refrescarAbajo();
+  } catch (err) { $("avisoFeedback").textContent = "Error: " + err.message; }
+};
+
+// ------------------------------------------------------------------ metricas + historial
+function pintarMetricas(m) {
+  if (!m || !m.total_feedbacks) {
+    $("metricas").innerHTML = `<span class="chip">Sin calificaciones todavía</span>`;
+    return;
+  }
+  let html = `<span class="chip">Global: <b>${m.promedio_global ?? "—"}/5</b> (${m.total_feedbacks})</span>`;
+  for (const [proy, d] of Object.entries(m.por_proyecto)) {
+    html += `<span class="chip ${d.meta_ok ? "meta-ok" : ""}">${proy}: últimas 3 <b>${d.prom_ultimas3}/5</b>${d.meta_ok ? " 🎯" : ""}</span>`;
+  }
+  $("metricas").innerHTML = html;
+}
+
+async function refrescarAbajo() {
+  try {
+    const [m, h] = await Promise.all([json_("/api/metricas"), json_("/api/historial")]);
+    pintarMetricas(m);
+    $("tabla").querySelector("tbody").innerHTML = h.jobs.map(j =>
+      `<tr><td>${(j.creado || "").slice(5, 16)}</td><td>${j.proyecto}</td>` +
+      `<td>${j.titulo || "…"}</td><td>${j.duracion ? j.duracion.toFixed(0) + "s" : "—"}</td>` +
+      `<td>${j.puntaje ? j.puntaje + "/5" : "—"}</td>` +
+      `<td>${j.video_path ? `<a href="/salidas/${j.id}/final.mp4" target="_blank">ver</a>` : ""}</td></tr>`
+    ).join("");
+  } catch {}
+}
+
+chequearSalud();
+refrescarAbajo();
+</script>
+</body>
+</html>

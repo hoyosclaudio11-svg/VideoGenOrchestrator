@@ -1,0 +1,16 @@
+{
+  "puerto": 5190,
+  "freellmapi_url": "http://127.0.0.1:3001",
+  "freellmapi_key": "TU_KEY_AQUI",
+  "modelo_texto": "auto",
+  "modelo_imagen": "auto",
+  "whisper_model": "base",
+  "tts_provider": "auto",
+  "elevenlabs_api_key": "",
+  "elevenlabs_voice_id": "",
+  "edge_voice": "es-AR-TomasNeural",
+  "aspecto": "vertical",
+  "max_escenas": 6,
+  "segundos_objetivo": 50,
+  "subtitulos": true
+}
